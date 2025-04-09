@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use pgp::{decrypt, encrypt, gen_key_pair, native::ser::Serialize};
 
 const FAVICON: Asset = asset!("/assets/favicon.ico");
 const MAIN_CSS: Asset = asset!("/assets/main.css");
@@ -102,11 +103,14 @@ fn GenerateKeysTab() -> Element {
     let mut private_key = use_signal(String::new);
     let mut public_key = use_signal(String::new);
     
-    let generate_keys = move |_| {
+    let generate_keys = move |_| async move {
         // In a real implementation, you would generate actual PGP keys here
         // For now, we'll just set some placeholder text
-        private_key.set("-----BEGIN PGP PRIVATE KEY BLOCK-----\n[Private key would appear here]\n-----END PGP PRIVATE KEY BLOCK-----".to_string());
-        public_key.set("-----BEGIN PGP PUBLIC KEY BLOCK-----\n[Public key would appear here]\n-----END PGP PUBLIC KEY BLOCK-----".to_string());
+        // private_key.set("-----BEGIN PGP PRIVATE KEY BLOCK-----\n[Private key would appear here]\n-----END PGP PRIVATE KEY BLOCK-----".to_string());
+        // public_key.set("-----BEGIN PGP PUBLIC KEY BLOCK-----\n[Public key would appear here]\n-----END PGP PUBLIC KEY BLOCK-----".to_string());
+        let (priv_key, pub_key) = gen_key_pair("","").await.unwrap();
+        private_key.set(priv_key.to_armored_string(None).unwrap());
+        public_key.set(pub_key.to_armored_string(None).unwrap());
     };
     
     rsx! {

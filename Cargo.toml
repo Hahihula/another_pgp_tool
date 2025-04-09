@@ -8,6 +8,7 @@ edition = "2021"
 
 [dependencies]
 dioxus = { version = "0.6.0", features = [] }
+pgp-lib = "1.0.0"
 
 [features]
 default = ["desktop"]
