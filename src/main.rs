@@ -1,23 +1,24 @@
+
 use dioxus::prelude::*;
-use pgp::{decrypt, encrypt, gen_key_pair, native::ser::Serialize};
+use pgp::{encrypt, utils, gen_key_pair};
 
 const FAVICON: Asset = asset!("/assets/favicon.ico");
 const MAIN_CSS: Asset = asset!("/assets/main.css");
 
-// State for tracking active tab
 #[derive(Clone, Copy, PartialEq)]
 enum ActiveTab {
     Generate,
     Encrypt,
     Decrypt,
+    Sign,
     Verify,
 }
-
 static ACTIVETAB: GlobalSignal<ActiveTab> = Signal::global(|| ActiveTab::Generate);
 
 fn main() {
     dioxus::launch(App);
 }
+
 
 #[component]
 fn App() -> Element {
@@ -43,17 +44,6 @@ fn Header() -> Element {
 
 #[component]
 fn TabNavigation() -> Element {
-    // let set_active = move |tab: ActiveTab| {
-    //     active_tab.set(tab);
-    // };
-    
-    // let tab_generate = move |evt| {};
-    // let tabe_encrypt = move |evt| {};
-    // let tab_decrypt = move |evt| {};
-    // let tab_verify = move |evt| {};
-    
-    // let active_tab = use_hook(|| ActiveTab::Generate);
-    // let active_tab = use_signal(|| ActiveTab::Generate);
     let active_tab = &ACTIVETAB;
 
 
@@ -79,6 +69,11 @@ fn TabNavigation() -> Element {
                 onclick: move |_| *ACTIVETAB.write() = ActiveTab::Verify,
                 "Verify Message"
             }
+            button {
+                class: if *active_tab == ActiveTab::Sign { "tab-button active" } else { "tab-button" },
+                onclick: move |_| *ACTIVETAB.write() = ActiveTab::Sign,
+                "Sign Message"
+            }
         }
     }
 }
@@ -93,6 +88,7 @@ fn TabContent() -> Element {
                 ActiveTab::Encrypt => rsx! { EncryptMessageTab {} },
                 ActiveTab::Decrypt => rsx! { DecryptMessageTab {} },
                 ActiveTab::Verify => rsx! { VerifyMessageTab {} },
+                ActiveTab::Sign => rsx! { SignMessageTab {} },
             }
         }
     }
@@ -104,10 +100,6 @@ fn GenerateKeysTab() -> Element {
     let mut public_key = use_signal(String::new);
     
     let generate_keys = move |_| async move {
-        // In a real implementation, you would generate actual PGP keys here
-        // For now, we'll just set some placeholder text
-        // private_key.set("-----BEGIN PGP PRIVATE KEY BLOCK-----\n[Private key would appear here]\n-----END PGP PRIVATE KEY BLOCK-----".to_string());
-        // public_key.set("-----BEGIN PGP PUBLIC KEY BLOCK-----\n[Public key would appear here]\n-----END PGP PUBLIC KEY BLOCK-----".to_string());
         let (priv_key, pub_key) = gen_key_pair("","").await.unwrap();
         private_key.set(priv_key.to_armored_string(None).unwrap());
         public_key.set(pub_key.to_armored_string(None).unwrap());
@@ -154,11 +146,69 @@ fn GenerateKeysTab() -> Element {
 
 #[component]
 fn EncryptMessageTab() -> Element {
+    let mut recipient_public_key = use_signal(String::new);
+    let mut plain_message = use_signal(String::new);
+    let mut encrypted_message = use_signal(String::new);
+    
+    let encrypt_message = move |_| {
+        to_owned![plain_message, recipient_public_key, encrypted_message];
+        async move {
+        let msg = plain_message.read().clone().as_bytes().to_vec();
+        let skey = utils::read_pkey_from_string(recipient_public_key.read().clone()).await.unwrap();
+        let encrypted_msg = encrypt(vec![skey], msg)
+            .await
+            .unwrap();
+        encrypted_message.set(String::from_utf8(encrypted_msg).unwrap());
+        
+        }
+    };
+    
     rsx! {
         div { class: "tab-panel",
             h2 { "Encrypt Message" }
-            p { "Encrypt a message using a public key." }
-            // Form elements would go here
+            
+            div { class: "form-group",
+                label { "Recipient's Public Key:" }
+                textarea {
+                    class: "key-textarea",
+                    value: recipient_public_key.read().clone(),
+                    oninput: move |evt| recipient_public_key.set(evt.value().clone()),
+                    rows: 8,
+                    cols: 50,
+                    placeholder: "Paste recipient's public key here..."
+                }
+            }
+            
+            div { class: "form-group",
+                label { "Message to Encrypt:" }
+                textarea {
+                    class: "message-textarea",
+                    value: plain_message.read().clone(),
+                    oninput: move |evt| plain_message.set(evt.value().clone()),
+                    rows: 5,
+                    cols: 50,
+                    placeholder: "Type your message here..."
+                }
+            }
+            
+            div { class: "form-group",
+                button {
+                    class: "encrypt-button",
+                    onclick: encrypt_message,
+                    "Encrypt Message"
+                }
+            }
+            
+            div { class: "form-group",
+                label { "Encrypted Message:" }
+                textarea {
+                    class: "encrypted-textarea",
+                    readonly: true,
+                    value: encrypted_message.read().clone(),
+                    rows: 8,
+                    cols: 50
+                }
+            }
         }
     }
 }
@@ -180,6 +230,17 @@ fn VerifyMessageTab() -> Element {
         div { class: "tab-panel",
             h2 { "Verify Message" }
             p { "Verify a signed message using a public key." }
+            // Form elements would go here
+        }
+    }
+}
+
+#[component]
+fn SignMessageTab() -> Element {
+    rsx! {
+        div { class: "tab-panel",
+            h2 { "Sign Message" }
+            p { "Sign a message using your private key." }
             // Form elements would go here
         }
     }

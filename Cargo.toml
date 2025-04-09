@@ -8,7 +8,7 @@ edition = "2021"
 
 [dependencies]
 dioxus = { version = "0.6.0", features = [] }
-pgp-lib = "1.0.0"
+pgp-lib = { git = "https://github.com/Hahihula/pimalaya_core.git", branch = "read_pkey_from_string" }
 
 [features]
 default = ["desktop"]

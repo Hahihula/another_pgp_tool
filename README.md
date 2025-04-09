@@ -12,6 +12,7 @@ Another PGP Tool is a work-in-progress application designed to provide simple, s
 - Simple, intuitive interface for PGP operations
 - Built with memory-safe Rust language
 - Open-source and fully auditable
+- App has "no memory". It does not store any data. Even switching tabs erases all form fields.
 
 ## Security
 
@@ -76,4 +77,9 @@ MIT
 
 ## Roadmap
 
-*Coming soon*
+- finish MVP
+- add tests
+- add documentation
+- add CI/CD
+- multi recipient encryption
+- UI redesign with better UX and mobile first design

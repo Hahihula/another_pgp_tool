@@ -2418,8 +2418,7 @@ dependencies = [
 [[package]]
 name = "http-lib"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "994cbd23c90551cb5821d1c9d9b1e41383f338b31fc122671edc7d1695a61338"
+source = "git+https://github.com/Hahihula/pimalaya_core.git?branch=read_pkey_from_string#964bc3f9433b6470f930a76b28c3a8a82d8939c5"
 dependencies = [
  "thiserror 1.0.69",
  "tokio",
@@ -3630,8 +3629,7 @@ dependencies = [
 [[package]]
 name = "pgp-lib"
 version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62b1a64cb843daaa31d7109d77871ba6fcaa25be5b488c97eeb28fc378e5fed7"
+source = "git+https://github.com/Hahihula/pimalaya_core.git?branch=read_pkey_from_string#964bc3f9433b6470f930a76b28c3a8a82d8939c5"
 dependencies = [
  "http-lib",
  "pgp",
@@ -5705,7 +5703,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
