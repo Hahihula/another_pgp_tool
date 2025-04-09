@@ -99,11 +99,51 @@ fn TabContent() -> Element {
 
 #[component]
 fn GenerateKeysTab() -> Element {
+    let mut private_key = use_signal(String::new);
+    let mut public_key = use_signal(String::new);
+    
+    let generate_keys = move |_| {
+        // In a real implementation, you would generate actual PGP keys here
+        // For now, we'll just set some placeholder text
+        private_key.set("-----BEGIN PGP PRIVATE KEY BLOCK-----\n[Private key would appear here]\n-----END PGP PRIVATE KEY BLOCK-----".to_string());
+        public_key.set("-----BEGIN PGP PUBLIC KEY BLOCK-----\n[Public key would appear here]\n-----END PGP PUBLIC KEY BLOCK-----".to_string());
+    };
+    
     rsx! {
         div { class: "tab-panel",
             h2 { "Generate PGP Keys" }
-            p { "Generate your public and private key pair here." }
-            // Form elements would go here
+            
+            div { class: "form-group",
+                button {
+                    class: "generate-button",
+                    onclick: generate_keys,
+                    "Generate Keys"
+                }
+            }
+            
+            div { class: "keys-container",
+                div { class: "key-section",
+                    label { "Private Key:" }
+                    textarea {
+                        class: "key-textarea",
+                        readonly: true,
+                        value: private_key.read().clone(),
+                        rows: 10,
+                        cols: 50
+                    }
+                }
+                
+                div { class: "key-section",
+                    label { "Public Key:" }
+                    textarea {
+                        class: "key-textarea",
+                        readonly: true,
+                        value: public_key.read().clone(),
+                        rows: 10,
+                        cols: 50
+                    }
+                }
+            }
         }
     }
 }
