@@ -1,6 +1,5 @@
-
 use dioxus::prelude::*;
-use pgp::{encrypt, utils, gen_key_pair};
+use pgp::{encrypt, gen_key_pair, utils};
 
 const FAVICON: Asset = asset!("/assets/favicon.ico");
 const MAIN_CSS: Asset = asset!("/assets/main.css");
@@ -13,12 +12,27 @@ enum ActiveTab {
     Sign,
     Verify,
 }
+#[derive(Clone, PartialEq)]
+struct Notification {
+    message: String,
+    notification_type: NotificationType,
+    id: u32,
+}
+
+#[derive(Clone, PartialEq)]
+enum NotificationType {
+    Error,
+    Success,
+    Info,
+}
+
 static ACTIVETAB: GlobalSignal<ActiveTab> = Signal::global(|| ActiveTab::Generate);
+static NOTIFICATIONS: GlobalSignal<Vec<Notification>> = Signal::global(Vec::new);
+static NEXT_ID: GlobalSignal<u32> = Signal::global(|| 0);
 
 fn main() {
     dioxus::launch(App);
 }
-
 
 #[component]
 fn App() -> Element {
@@ -27,8 +41,52 @@ fn App() -> Element {
         document::Link { rel: "stylesheet", href: MAIN_CSS }
         div { class: "app-container",
             Header {}
-            TabNavigation {  }
-            TabContent { }
+            TabNavigation {}
+            TabContent {}
+            NotificationContainer {}
+        }
+    }
+}
+
+#[component]
+fn NotificationContainer() -> Element {
+    let notifications = NOTIFICATIONS.read();
+
+    rsx! {
+        div { class: "notification-container",
+            for notification in notifications.iter() {
+                Notification_item {
+                    key: "{notification.id}",
+                    message: notification.message.clone(),
+                    notification_type: notification.notification_type.clone(),
+                    id: notification.id
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn Notification_item(message: String, notification_type: NotificationType, id: u32) -> Element {
+    let notification_class = match notification_type {
+        NotificationType::Error => "notification error",
+        NotificationType::Success => "notification success",
+        NotificationType::Info => "notification info",
+    };
+
+    let dismiss = move |_| {
+        let mut notifications = NOTIFICATIONS.write();
+        notifications.retain(|n| n.id != id);
+    };
+
+    rsx! {
+        div { class: "{notification_class}",
+            span { class: "notification-message", "{message}" }
+            button {
+                class: "notification-dismiss",
+                onclick: dismiss,
+                "×"
+            }
         }
     }
 }
@@ -45,7 +103,6 @@ fn Header() -> Element {
 #[component]
 fn TabNavigation() -> Element {
     let active_tab = &ACTIVETAB;
-
 
     rsx! {
         nav { class: "tab-navigation",
@@ -98,17 +155,44 @@ fn TabContent() -> Element {
 fn GenerateKeysTab() -> Element {
     let mut private_key = use_signal(String::new);
     let mut public_key = use_signal(String::new);
-    
+
     let generate_keys = move |_| async move {
-        let (priv_key, pub_key) = gen_key_pair("","").await.unwrap();
-        private_key.set(priv_key.to_armored_string(None).unwrap());
-        public_key.set(pub_key.to_armored_string(None).unwrap());
+        let (priv_key, pub_key) = match gen_key_pair("", "").await {
+            Ok(res) => res,
+            Err(e) => {
+                show_message(
+                    format!("Error generating keys: {}", e),
+                    Some(NotificationType::Error),
+                );
+                return;
+            }
+        };
+        private_key.set(match priv_key.to_armored_string(None) {
+            Ok(s) => s,
+            Err(e) => {
+                show_message(
+                    format!("Private key not valid string: {}", e),
+                    Some(NotificationType::Error),
+                );
+                return;
+            }
+        });
+        public_key.set(match pub_key.to_armored_string(None) {
+            Ok(s) => s,
+            Err(e) => {
+                show_message(
+                    format!("Public key not valid string: {}", e),
+                    Some(NotificationType::Error),
+                );
+                return;
+            }
+        });
     };
-    
+
     rsx! {
         div { class: "tab-panel",
             h2 { "Generate PGP Keys" }
-            
+
             div { class: "form-group",
                 button {
                     class: "generate-button",
@@ -116,7 +200,7 @@ fn GenerateKeysTab() -> Element {
                     "Generate Keys"
                 }
             }
-            
+
             div { class: "keys-container",
                 div { class: "key-section",
                     label { "Private Key:" }
@@ -128,7 +212,7 @@ fn GenerateKeysTab() -> Element {
                         cols: 50
                     }
                 }
-                
+
                 div { class: "key-section",
                     label { "Public Key:" }
                     textarea {
@@ -148,25 +232,51 @@ fn GenerateKeysTab() -> Element {
 fn EncryptMessageTab() -> Element {
     let mut recipient_public_key = use_signal(String::new);
     let mut plain_message = use_signal(String::new);
-    let mut encrypted_message = use_signal(String::new);
-    
+    let encrypted_message = use_signal(String::new);
+
     let encrypt_message = move |_| {
         to_owned![plain_message, recipient_public_key, encrypted_message];
         async move {
-        let msg = plain_message.read().clone().as_bytes().to_vec();
-        let skey = utils::read_pkey_from_string(recipient_public_key.read().clone()).await.unwrap();
-        let encrypted_msg = encrypt(vec![skey], msg)
-            .await
-            .unwrap();
-        encrypted_message.set(String::from_utf8(encrypted_msg).unwrap());
-        
+            let msg = plain_message.read().clone().as_bytes().to_vec();
+            let skey = match utils::read_pkey_from_string(recipient_public_key.read().clone()).await
+            {
+                Ok(s) => s,
+                Err(e) => {
+                    show_message(
+                        format!("Error reading public key: {}", e),
+                        Some(NotificationType::Error),
+                    );
+                    return;
+                }
+            };
+            let encrypted_msg = match encrypt(vec![skey], msg).await {
+                Ok(s) => s,
+                Err(e) => {
+                    show_message(
+                        format!("Error encrypting message: {}", e),
+                        Some(NotificationType::Error),
+                    );
+                    return;
+                }
+            };
+
+            encrypted_message.set(match String::from_utf8(encrypted_msg) {
+                Ok(s) => s,
+                Err(e) => {
+                    show_message(
+                        format!("Error converting encrypted message to string: {}", e),
+                        Some(NotificationType::Error),
+                    );
+                    return;
+                }
+            });
         }
     };
-    
+
     rsx! {
         div { class: "tab-panel",
             h2 { "Encrypt Message" }
-            
+
             div { class: "form-group",
                 label { "Recipient's Public Key:" }
                 textarea {
@@ -178,7 +288,7 @@ fn EncryptMessageTab() -> Element {
                     placeholder: "Paste recipient's public key here..."
                 }
             }
-            
+
             div { class: "form-group",
                 label { "Message to Encrypt:" }
                 textarea {
@@ -190,7 +300,7 @@ fn EncryptMessageTab() -> Element {
                     placeholder: "Type your message here..."
                 }
             }
-            
+
             div { class: "form-group",
                 button {
                     class: "encrypt-button",
@@ -198,7 +308,7 @@ fn EncryptMessageTab() -> Element {
                     "Encrypt Message"
                 }
             }
-            
+
             div { class: "form-group",
                 label { "Encrypted Message:" }
                 textarea {
@@ -244,4 +354,22 @@ fn SignMessageTab() -> Element {
             // Form elements would go here
         }
     }
+}
+
+// utils:
+fn show_message(message: String, message_type: Option<NotificationType>) {
+    let mut notifications = NOTIFICATIONS.write();
+    let mut id = NEXT_ID.write();
+    let notification_type = match message_type {
+        Some(t) => t,
+        None => NotificationType::Info,
+    };
+
+    notifications.push(Notification {
+        message,
+        notification_type,
+        id: *id,
+    });
+
+    *id += 1;
 }
