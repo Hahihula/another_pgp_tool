@@ -1,0 +1,101 @@
+/* App-wide styling */
+body {
+    background-color: #1e1e2e;
+    color: #cdd6f4;
+    font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* Main container */
+.app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* Header styling */
+.app-header {
+    padding: 20px 0;
+    text-align: center;
+    border-bottom: 1px solid #313244;
+}
+
+.app-header h1 {
+    font-size: 2.2rem;
+    font-weight: 600;
+    margin: 0;
+    color: #89b4fa;
+    letter-spacing: -0.5px;
+}
+
+/* Tab navigation */
+.tab-navigation {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin: 20px 0;
+    padding: 10px 0;
+}
+
+.tab-button {
+    background-color: #313244;
+    color: #cdd6f4;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 20px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.tab-button:hover {
+    background-color: #45475a;
+}
+
+.tab-button.active {
+    background-color: #89b4fa;
+    color: #1e1e2e;
+}
+
+/* Tab content */
+.tab-content {
+    flex: 1;
+    background-color: #282a36;
+    border-radius: 10px;
+    padding: 30px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    overflow-y: auto;
+}
+
+.tab-panel {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.tab-panel h2 {
+    color: #89b4fa;
+    margin-top: 0;
+    font-size: 1.8rem;
+    font-weight: 600;
+    margin-bottom: 20px;
+}
+
+.tab-panel p {
+    color: #bac2de;
+    line-height: 1.6;
+}
+
+/* Animation */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+
+
