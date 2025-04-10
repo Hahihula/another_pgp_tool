@@ -77,9 +77,11 @@ MIT
 
 ## Roadmap
 
-- finish MVP
+- ✔ finish MVP
+- fix platform web
 - add tests
 - add documentation
 - add CI/CD
 - multi recipient encryption
 - UI redesign with better UX and mobile first design
+- add mobile platform
