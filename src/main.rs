@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use pgp::{decrypt, encrypt, gen_key_pair, utils};
+use pgp::{decrypt, encrypt, sign, gen_key_pair, utils};
 
 const FAVICON: Asset = asset!("/assets/favicon.ico");
 const MAIN_CSS: Asset = asset!("/assets/main.css");
@@ -431,11 +431,106 @@ fn VerifyMessageTab() -> Element {
 
 #[component]
 fn SignMessageTab() -> Element {
+    let mut private_key = use_signal(String::new);
+    let mut message_to_sign = use_signal(String::new);
+    let signed_message = use_signal(String::new);
+
+    let sign_message = move |_| {
+        to_owned![private_key, message_to_sign, signed_message];
+        async move {
+            let message_data = message_to_sign.read().clone().as_bytes().to_vec();
+            let skey = match utils::read_skey_from_string(private_key.read().clone()).await {
+                Ok(s) => s,
+                Err(e) => {
+                    show_message(
+                        format!("Error reading private key: {}", e),
+                        Some(NotificationType::Error),
+                    );
+                    return;
+                }
+            };
+            
+            let signed_data = match sign(skey, "", message_data).await {
+                Ok(s) => s,
+                Err(e) => {
+                    show_message(
+                        format!("Error signing message: {}", e),
+                        Some(NotificationType::Error),
+                    );
+                    return;
+                }
+            };
+
+            // Format the signed message properly with the message and signature
+            let message_content = message_to_sign.read().clone();
+            let signature_part = match String::from_utf8(signed_data) {
+                Ok(s) => s,
+                Err(e) => {
+                    show_message(
+                        format!("Error converting signed message to string: {}", e),
+                        Some(NotificationType::Error),
+                    );
+                    return;
+                }
+            };
+            
+            // Create the complete PGP signed message format
+            let complete_signed_message = format!(
+                "-----BEGIN PGP SIGNED MESSAGE-----\nHash: SHA256\n\n{}\n{}",
+                message_content,
+                signature_part
+            );
+            
+            signed_message.set(complete_signed_message);
+        }
+    };
+
     rsx! {
         div { class: "tab-panel",
             h2 { "Sign Message" }
-            p { "Sign a message using your private key." }
-            // Form elements would go here
+
+            div { class: "form-group",
+                label { "Your Private Key:" }
+                textarea {
+                    class: "key-textarea",
+                    value: private_key.read().clone(),
+                    oninput: move |evt| private_key.set(evt.value().clone()),
+                    rows: 8,
+                    cols: 50,
+                    placeholder: "Paste your private key here..."
+                }
+            }
+
+            div { class: "form-group",
+                label { "Message to Sign:" }
+                textarea {
+                    class: "message-textarea",
+                    value: message_to_sign.read().clone(),
+                    oninput: move |evt| message_to_sign.set(evt.value().clone()),
+                    rows: 5,
+                    cols: 50,
+                    placeholder: "Type your message here..."
+                }
+            }
+
+            div { class: "form-group",
+                button {
+                    class: "sign-button",
+                    onclick: sign_message,
+                    "Sign Message"
+                }
+            }
+
+            div { class: "form-group",
+                label { "Signed Message:" }
+                textarea {
+                    class: "signed-textarea",
+                    readonly: true,
+                    value: signed_message.read().clone(),
+                    rows: 8,
+                    cols: 50
+                }
+            }
         }
     }
 }
