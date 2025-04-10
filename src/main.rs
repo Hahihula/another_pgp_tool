@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use pgp::{encrypt, gen_key_pair, utils};
+use pgp::{decrypt, encrypt, gen_key_pair, utils};
 
 const FAVICON: Asset = asset!("/assets/favicon.ico");
 const MAIN_CSS: Asset = asset!("/assets/main.css");
@@ -325,11 +325,95 @@ fn EncryptMessageTab() -> Element {
 
 #[component]
 fn DecryptMessageTab() -> Element {
+    let mut private_key = use_signal(String::new);
+    let mut encrypted_message = use_signal(String::new);
+    let decrypted_message = use_signal(String::new);
+
+    let decrypt_message = move |_| {
+        to_owned![private_key, encrypted_message, decrypted_message];
+        async move {
+            let encrypted_data = encrypted_message.read().clone().as_bytes().to_vec();
+            let skey = match utils::read_skey_from_string(private_key.read().clone()).await {
+                Ok(s) => s,
+                Err(e) => {
+                    show_message(
+                        format!("Error reading private key: {}", e),
+                        Some(NotificationType::Error),
+                    );
+                    return;
+                }
+            };
+            
+            let decrypted_msg = match decrypt(skey, "", encrypted_data).await {
+                Ok(s) => s,
+                Err(e) => {
+                    show_message(
+                        format!("Error decrypting message: {}", e),
+                        Some(NotificationType::Error),
+                    );
+                    return;
+                }
+            };
+
+            decrypted_message.set(match String::from_utf8(decrypted_msg) {
+                Ok(s) => s,
+                Err(e) => {
+                    show_message(
+                        format!("Error converting decrypted message to string: {}", e),
+                        Some(NotificationType::Error),
+                    );
+                    return;
+                }
+            });
+        }
+    };
+
     rsx! {
         div { class: "tab-panel",
             h2 { "Decrypt Message" }
-            p { "Decrypt a message using your private key." }
-            // Form elements would go here
+
+            div { class: "form-group",
+                label { "Your Private Key:" }
+                textarea {
+                    class: "key-textarea",
+                    value: private_key.read().clone(),
+                    oninput: move |evt| private_key.set(evt.value().clone()),
+                    rows: 8,
+                    cols: 50,
+                    placeholder: "Paste your private key here..."
+                }
+            }
+
+            div { class: "form-group",
+                label { "Encrypted Message:" }
+                textarea {
+                    class: "message-textarea",
+                    value: encrypted_message.read().clone(),
+                    oninput: move |evt| encrypted_message.set(evt.value().clone()),
+                    rows: 5,
+                    cols: 50,
+                    placeholder: "Paste the encrypted message here..."
+                }
+            }
+
+            div { class: "form-group",
+                button {
+                    class: "decrypt-button",
+                    onclick: decrypt_message,
+                    "Decrypt Message"
+                }
+            }
+
+            div { class: "form-group",
+                label { "Decrypted Message:" }
+                textarea {
+                    class: "decrypted-textarea",
+                    readonly: true,
+                    value: decrypted_message.read().clone(),
+                    rows: 8,
+                    cols: 50
+                }
+            }
         }
     }
 }
