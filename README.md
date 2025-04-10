@@ -2,6 +2,8 @@
 
 A secure, cross-platform PGP encryption tool built with Rust and Dioxus.
 
+![App Screenshot](./screenshot.png)
+
 ## About
 
 Another PGP Tool is a work-in-progress application designed to provide simple, secure PGP encryption capabilities across multiple platforms. Built with Rust and the Dioxus framework, this tool aims to make encryption accessible while maintaining the highest security standards.

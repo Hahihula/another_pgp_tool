@@ -95,7 +95,10 @@ fn Notification_item(message: String, notification_type: NotificationType, id: u
 fn Header() -> Element {
     rsx! {
         header { class: "app-header",
-            h1 { "Yet Another PGP Tool" }
+            h1 { 
+                span { class: "header-icon", "🔐" }
+                "Yet Another PGP Tool" 
+            }
         }
     }
 }
@@ -109,27 +112,32 @@ fn TabNavigation() -> Element {
             button {
                 class: if *active_tab == ActiveTab::Generate { "tab-button active" } else { "tab-button" },
                 onclick: move |_| *ACTIVETAB.write() = ActiveTab::Generate,
-                "Generate Keys"
+                span { class: "tab-icon", "🔑" }
+                span { class: "tab-text", "Generate" }
             }
             button {
                 class: if *active_tab == ActiveTab::Encrypt { "tab-button active" } else { "tab-button" },
                 onclick: move |_| *ACTIVETAB.write() = ActiveTab::Encrypt,
-                "Encrypt Message"
+                span { class: "tab-icon", "🔒" }
+                span { class: "tab-text", "Encrypt" }
             }
             button {
                 class: if *active_tab == ActiveTab::Decrypt { "tab-button active" } else { "tab-button" },
                 onclick: move |_| *ACTIVETAB.write() = ActiveTab::Decrypt,
-                "Decrypt Message"
+                span { class: "tab-icon", "🔓" }
+                span { class: "tab-text", "Decrypt" }
             }
             button {
                 class: if *active_tab == ActiveTab::Verify { "tab-button active" } else { "tab-button" },
                 onclick: move |_| *ACTIVETAB.write() = ActiveTab::Verify,
-                "Verify Message"
+                span { class: "tab-icon", "✓" }
+                span { class: "tab-text", "Verify" }
             }
             button {
                 class: if *active_tab == ActiveTab::Sign { "tab-button active" } else { "tab-button" },
                 onclick: move |_| *ACTIVETAB.write() = ActiveTab::Sign,
-                "Sign Message"
+                span { class: "tab-icon", "✍" }
+                span { class: "tab-text", "Sign" }
             }
         }
     }
