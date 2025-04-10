@@ -1,4 +1,10 @@
 [application]
+name = "another_pgp_tool"
+
+[bundle]
+identifier = "com.hahihula"
+publisher = "Hahihula"
+icon = ["assets/icon.png"]
 
 [web.app]
 
