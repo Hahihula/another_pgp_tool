@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use pgp::{decrypt, encrypt, gen_key_pair, utils};
+use pgp::{decrypt, encrypt, gen_key_pair, read_sig_from_bytes, sign, utils, verify};
 
 const FAVICON: Asset = asset!("/assets/favicon.ico");
 const MAIN_CSS: Asset = asset!("/assets/main.css");
@@ -343,7 +343,7 @@ fn DecryptMessageTab() -> Element {
                     return;
                 }
             };
-            
+
             let decrypted_msg = match decrypt(skey, "", encrypted_data).await {
                 Ok(s) => s,
                 Err(e) => {
@@ -420,22 +420,263 @@ fn DecryptMessageTab() -> Element {
 
 #[component]
 fn VerifyMessageTab() -> Element {
+    let mut public_key = use_signal(String::new);
+    let mut signed_message = use_signal(String::new);
+    let mut verification_result = use_signal(String::new);
+
+    let verify_message = move |_| {
+        let public_key = public_key.read().clone();
+        let signed_message = signed_message.read().clone();
+
+        spawn(async move {
+            // Validate input presence
+            if public_key.trim().is_empty() || signed_message.trim().is_empty() {
+                verification_result
+                    .set("Error: Public key and signed message are required".to_string());
+                show_message(
+                    "Please provide both public key and signed message".to_string(),
+                    Some(NotificationType::Error),
+                );
+                return;
+            }
+
+            // Parse the signed message
+            let signature_start = match signed_message.find("-----BEGIN PGP SIGNATURE-----") {
+                Some(pos) => pos,
+                None => {
+                    verification_result.set("Error: Invalid signed message format".to_string());
+                    show_message(
+                        "Invalid signed message format".to_string(),
+                        Some(NotificationType::Error),
+                    );
+                    return;
+                }
+            };
+
+            let signature_end = match signed_message.find("-----END PGP SIGNATURE-----") {
+                Some(pos) => pos + "-----END PGP SIGNATURE-----".len(),
+                None => {
+                    verification_result.set("Error: Incomplete signature block".to_string());
+                    show_message(
+                        "Missing signature end marker".to_string(),
+                        Some(NotificationType::Error),
+                    );
+                    return;
+                }
+            };
+
+            if signature_end <= signature_start {
+                verification_result.set("Error: Invalid signature block format".to_string());
+                return;
+            }
+
+            let signature_part = &signed_message[signature_start..signature_end];
+            let message_part = signed_message[..signature_start].trim();
+
+            // Handle PGP signed message header
+            let clean_message = if message_part.starts_with("-----BEGIN PGP SIGNED MESSAGE-----") {
+                let header_end = message_part.find("\n\n").unwrap_or(0);
+                if header_end > 0 {
+                    message_part[header_end + 2..].trim()
+                } else {
+                    message_part.trim()
+                }
+            } else {
+                message_part
+            };
+
+            // Process signature and public key
+            match read_sig_from_bytes(signature_part.as_bytes().to_vec()).await {
+                Ok(sig) => match utils::read_pkey_from_string(public_key).await {
+                    Ok(pkey) => match verify(pkey, sig, clean_message.as_bytes().to_vec()).await {
+                        Ok(_) => {
+                            verification_result.set(format!(
+                                "✓ Signature Valid\n\nVerified Message:\n{}",
+                                clean_message
+                            ));
+                            show_message(
+                                "Signature verified successfully!".to_string(),
+                                Some(NotificationType::Success),
+                            );
+                        }
+                        Err(e) => {
+                            verification_result.set("✗ Invalid Signature".to_string());
+                            show_message(
+                                format!("Signature verification failed: {}", e),
+                                Some(NotificationType::Error),
+                            );
+                        }
+                    },
+                    Err(e) => {
+                        verification_result.set("Error: Invalid public key".to_string());
+                        show_message(
+                            format!("Error reading public key: {}", e),
+                            Some(NotificationType::Error),
+                        );
+                    }
+                },
+                Err(e) => {
+                    verification_result.set("Error: Invalid signature format".to_string());
+                    show_message(
+                        format!("Error reading signature: {}", e),
+                        Some(NotificationType::Error),
+                    );
+                }
+            }
+        });
+    };
+
     rsx! {
         div { class: "tab-panel",
             h2 { "Verify Message" }
-            p { "Verify a signed message using a public key." }
-            // Form elements would go here
+
+            div { class: "form-group",
+                label { "Signer's Public Key:" }
+                textarea {
+                    class: "key-textarea",
+                    value: public_key.read().clone(),
+                    oninput: move |evt| public_key.set(evt.value().clone()),
+                    rows: 8,
+                    cols: 50,
+                    placeholder: "Paste the signer's public key here..."
+                }
+            }
+
+            div { class: "form-group",
+                label { "Signed Message:" }
+                textarea {
+                    class: "message-textarea",
+                    value: signed_message.read().clone(),
+                    oninput: move |evt| signed_message.set(evt.value().clone()),
+                    rows: 10,
+                    cols: 50,
+                    placeholder: "Paste the entire signed message here (including headers and signature)..."
+                }
+            }
+
+            div { class: "form-group",
+                button {
+                    class: "verify-button",
+                    onclick: verify_message,
+                    "Verify Message"
+                }
+            }
+
+            div { class: "form-group",
+                label { "Verification Result:" }
+                textarea {
+                    class: "verification-textarea",
+                    readonly: true,
+                    value: verification_result.read().clone(),
+                    rows: 8,
+                    cols: 50
+                }
+            }
         }
     }
 }
 
 #[component]
 fn SignMessageTab() -> Element {
+    let mut private_key = use_signal(String::new);
+    let mut message_to_sign = use_signal(String::new);
+    let signed_message = use_signal(String::new);
+
+    let sign_message = move |_| {
+        to_owned![private_key, message_to_sign, signed_message];
+        async move {
+            let message_data = message_to_sign.read().clone().as_bytes().to_vec();
+            let skey = match utils::read_skey_from_string(private_key.read().clone()).await {
+                Ok(s) => s,
+                Err(e) => {
+                    show_message(
+                        format!("Error reading private key: {}", e),
+                        Some(NotificationType::Error),
+                    );
+                    return;
+                }
+            };
+
+            let signed_data = match sign(skey, "", message_data).await {
+                Ok(s) => s,
+                Err(e) => {
+                    show_message(
+                        format!("Error signing message: {}", e),
+                        Some(NotificationType::Error),
+                    );
+                    return;
+                }
+            };
+
+            // Format the signed message properly with the message and signature
+            let message_content = message_to_sign.read().clone();
+            let signature_part = match String::from_utf8(signed_data) {
+                Ok(s) => s,
+                Err(e) => {
+                    show_message(
+                        format!("Error converting signed message to string: {}", e),
+                        Some(NotificationType::Error),
+                    );
+                    return;
+                }
+            };
+
+            // Create the complete PGP signed message format
+            let complete_signed_message = format!(
+                "-----BEGIN PGP SIGNED MESSAGE-----\nHash: SHA256\n\n{}\n{}",
+                message_content, signature_part
+            );
+
+            signed_message.set(complete_signed_message);
+        }
+    };
+
     rsx! {
         div { class: "tab-panel",
             h2 { "Sign Message" }
-            p { "Sign a message using your private key." }
-            // Form elements would go here
+
+            div { class: "form-group",
+                label { "Your Private Key:" }
+                textarea {
+                    class: "key-textarea",
+                    value: private_key.read().clone(),
+                    oninput: move |evt| private_key.set(evt.value().clone()),
+                    rows: 8,
+                    cols: 50,
+                    placeholder: "Paste your private key here..."
+                }
+            }
+
+            div { class: "form-group",
+                label { "Message to Sign:" }
+                textarea {
+                    class: "message-textarea",
+                    value: message_to_sign.read().clone(),
+                    oninput: move |evt| message_to_sign.set(evt.value().clone()),
+                    rows: 5,
+                    cols: 50,
+                    placeholder: "Type your message here..."
+                }
+            }
+
+            div { class: "form-group",
+                button {
+                    class: "sign-button",
+                    onclick: sign_message,
+                    "Sign Message"
+                }
+            }
+
+            div { class: "form-group",
+                label { "Signed Message:" }
+                textarea {
+                    class: "signed-textarea",
+                    readonly: true,
+                    value: signed_message.read().clone(),
+                    rows: 8,
+                    cols: 50
+                }
+            }
         }
     }
 }
