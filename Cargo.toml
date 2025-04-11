@@ -10,14 +10,14 @@ edition = "2021"
 dioxus = { version = "0.6.0", features = [] }
 pgp-lib = { git = "https://github.com/Hahihula/pimalaya_core.git", branch = "read_pkey_from_string" }
 getrandom = { version = "0.2.15", features = ["js"] }
+base64 = "0.22.1"
+image = "0.25.6"
 
 [features]
 default = ["desktop"]
 web = ["dioxus/web"]
 desktop = ["dioxus/desktop"]
 mobile = ["dioxus/mobile"]
-
-[profile]
 
 [profile.wasm-dev]
 inherits = "dev"
@@ -28,3 +28,23 @@ inherits = "dev"
 
 [profile.android-dev]
 inherits = "dev"
+
+[target.'cfg(windows)'.build-dependencies]
+winres = "0.1"
+
+[[bin]]
+name = "another_pgp_tool"  # Replace with your actual binary name
+path = "src/main.rs"
+windows_subsystem = "windows"  # This is the key setting that prevents the console window
+
+[package.metadata.bundle]
+name = "another_pgp_tool"
+identifier = "com.hahihula.another_pgp_tool"
+icon = ["icons/icon.png"]
+version = "1.0.0"
+resources = []
+copyright = "Copyright (c) Hahihula 2025. All rights reserved."
+
+[[package.metadata.bundle.targets]]
+name = "windows"
+subsystem = "windows"
