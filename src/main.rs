@@ -1,8 +1,12 @@
+#![windows_subsystem = "windows"]
+
+use std::{env, path::Path};
+
 use dioxus::prelude::*;
 use pgp::{decrypt, encrypt, gen_key_pair, read_sig_from_bytes, sign, utils, verify};
 
-const FAVICON: Asset = asset!("/assets/favicon.ico");
-const MAIN_CSS: Asset = asset!("/assets/main.css");
+const FAVICON_BYTES: &[u8] = include_bytes!("../assets/favicon.ico");
+const MAIN_CSS: &[u8] = include_bytes!("../assets/main.css");
 
 #[derive(Clone, Copy, PartialEq)]
 enum ActiveTab {
@@ -31,14 +35,19 @@ static NOTIFICATIONS: GlobalSignal<Vec<Notification>> = Signal::global(Vec::new)
 static NEXT_ID: GlobalSignal<u32> = Signal::global(|| 0);
 
 fn main() {
+    let temp_path = Path::new(env::temp_dir().to_str().unwrap()).join("another_pgp_tool");
+    env::set_var("WEBVIEW2_USER_DATA_FOLDER", temp_path.to_str().unwrap());
     dioxus::launch(App);
 }
 
 #[component]
 fn App() -> Element {
     rsx! {
-        document::Link { rel: "icon", href: FAVICON }
-        document::Link { rel: "stylesheet", href: MAIN_CSS }
+        document::Link {
+            rel: "icon",
+            href: format!("data:image/x-icon;base64,{}", base64::encode(FAVICON_BYTES)),
+        }
+        style { "{std::str::from_utf8(MAIN_CSS).unwrap_or_default()}" }
         div { class: "app-container",
             Header {}
             TabNavigation {}
@@ -59,7 +68,7 @@ fn NotificationContainer() -> Element {
                     key: "{notification.id}",
                     message: notification.message.clone(),
                     notification_type: notification.notification_type.clone(),
-                    id: notification.id
+                    id: notification.id,
                 }
             }
         }
@@ -82,11 +91,7 @@ fn Notification_item(message: String, notification_type: NotificationType, id: u
     rsx! {
         div { class: "{notification_class}",
             span { class: "notification-message", "{message}" }
-            button {
-                class: "notification-dismiss",
-                onclick: dismiss,
-                "×"
-            }
+            button { class: "notification-dismiss", onclick: dismiss, "×" }
         }
     }
 }
@@ -95,9 +100,9 @@ fn Notification_item(message: String, notification_type: NotificationType, id: u
 fn Header() -> Element {
     rsx! {
         header { class: "app-header",
-            h1 { 
+            h1 {
                 span { class: "header-icon", "🔐" }
-                "Yet Another PGP Tool" 
+                "Yet Another PGP Tool"
             }
         }
     }
@@ -149,11 +154,21 @@ fn TabContent() -> Element {
     rsx! {
         div { class: "tab-content",
             match *active_tab.read() {
-                ActiveTab::Generate => rsx! { GenerateKeysTab {} },
-                ActiveTab::Encrypt => rsx! { EncryptMessageTab {} },
-                ActiveTab::Decrypt => rsx! { DecryptMessageTab {} },
-                ActiveTab::Verify => rsx! { VerifyMessageTab {} },
-                ActiveTab::Sign => rsx! { SignMessageTab {} },
+                ActiveTab::Generate => rsx! {
+                    GenerateKeysTab {}
+                },
+                ActiveTab::Encrypt => rsx! {
+                    EncryptMessageTab {}
+                },
+                ActiveTab::Decrypt => rsx! {
+                    DecryptMessageTab {}
+                },
+                ActiveTab::Verify => rsx! {
+                    VerifyMessageTab {}
+                },
+                ActiveTab::Sign => rsx! {
+                    SignMessageTab {}
+                },
             }
         }
     }
@@ -202,11 +217,7 @@ fn GenerateKeysTab() -> Element {
             h2 { "Generate PGP Keys" }
 
             div { class: "form-group",
-                button {
-                    class: "generate-button",
-                    onclick: generate_keys,
-                    "Generate Keys"
-                }
+                button { class: "generate-button", onclick: generate_keys, "Generate Keys" }
             }
 
             div { class: "keys-container",
@@ -217,7 +228,7 @@ fn GenerateKeysTab() -> Element {
                         readonly: true,
                         value: private_key.read().clone(),
                         rows: 10,
-                        cols: 50
+                        cols: 50,
                     }
                 }
 
@@ -228,7 +239,7 @@ fn GenerateKeysTab() -> Element {
                         readonly: true,
                         value: public_key.read().clone(),
                         rows: 10,
-                        cols: 50
+                        cols: 50,
                     }
                 }
             }
@@ -293,7 +304,7 @@ fn EncryptMessageTab() -> Element {
                     oninput: move |evt| recipient_public_key.set(evt.value().clone()),
                     rows: 8,
                     cols: 50,
-                    placeholder: "Paste recipient's public key here..."
+                    placeholder: "Paste recipient's public key here...",
                 }
             }
 
@@ -305,16 +316,12 @@ fn EncryptMessageTab() -> Element {
                     oninput: move |evt| plain_message.set(evt.value().clone()),
                     rows: 5,
                     cols: 50,
-                    placeholder: "Type your message here..."
+                    placeholder: "Type your message here...",
                 }
             }
 
             div { class: "form-group",
-                button {
-                    class: "encrypt-button",
-                    onclick: encrypt_message,
-                    "Encrypt Message"
-                }
+                button { class: "encrypt-button", onclick: encrypt_message, "Encrypt Message" }
             }
 
             div { class: "form-group",
@@ -324,7 +331,7 @@ fn EncryptMessageTab() -> Element {
                     readonly: true,
                     value: encrypted_message.read().clone(),
                     rows: 8,
-                    cols: 50
+                    cols: 50,
                 }
             }
         }
@@ -388,7 +395,7 @@ fn DecryptMessageTab() -> Element {
                     oninput: move |evt| private_key.set(evt.value().clone()),
                     rows: 8,
                     cols: 50,
-                    placeholder: "Paste your private key here..."
+                    placeholder: "Paste your private key here...",
                 }
             }
 
@@ -400,16 +407,12 @@ fn DecryptMessageTab() -> Element {
                     oninput: move |evt| encrypted_message.set(evt.value().clone()),
                     rows: 5,
                     cols: 50,
-                    placeholder: "Paste the encrypted message here..."
+                    placeholder: "Paste the encrypted message here...",
                 }
             }
 
             div { class: "form-group",
-                button {
-                    class: "decrypt-button",
-                    onclick: decrypt_message,
-                    "Decrypt Message"
-                }
+                button { class: "decrypt-button", onclick: decrypt_message, "Decrypt Message" }
             }
 
             div { class: "form-group",
@@ -419,7 +422,7 @@ fn DecryptMessageTab() -> Element {
                     readonly: true,
                     value: decrypted_message.read().clone(),
                     rows: 8,
-                    cols: 50
+                    cols: 50,
                 }
             }
         }
@@ -546,7 +549,7 @@ fn VerifyMessageTab() -> Element {
                     oninput: move |evt| public_key.set(evt.value().clone()),
                     rows: 8,
                     cols: 50,
-                    placeholder: "Paste the signer's public key here..."
+                    placeholder: "Paste the signer's public key here...",
                 }
             }
 
@@ -558,16 +561,12 @@ fn VerifyMessageTab() -> Element {
                     oninput: move |evt| signed_message.set(evt.value().clone()),
                     rows: 10,
                     cols: 50,
-                    placeholder: "Paste the entire signed message here (including headers and signature)..."
+                    placeholder: "Paste the entire signed message here (including headers and signature)...",
                 }
             }
 
             div { class: "form-group",
-                button {
-                    class: "verify-button",
-                    onclick: verify_message,
-                    "Verify Message"
-                }
+                button { class: "verify-button", onclick: verify_message, "Verify Message" }
             }
 
             div { class: "form-group",
@@ -577,7 +576,7 @@ fn VerifyMessageTab() -> Element {
                     readonly: true,
                     value: verification_result.read().clone(),
                     rows: 8,
-                    cols: 50
+                    cols: 50,
                 }
             }
         }
@@ -651,7 +650,7 @@ fn SignMessageTab() -> Element {
                     oninput: move |evt| private_key.set(evt.value().clone()),
                     rows: 8,
                     cols: 50,
-                    placeholder: "Paste your private key here..."
+                    placeholder: "Paste your private key here...",
                 }
             }
 
@@ -663,16 +662,12 @@ fn SignMessageTab() -> Element {
                     oninput: move |evt| message_to_sign.set(evt.value().clone()),
                     rows: 5,
                     cols: 50,
-                    placeholder: "Type your message here..."
+                    placeholder: "Type your message here...",
                 }
             }
 
             div { class: "form-group",
-                button {
-                    class: "sign-button",
-                    onclick: sign_message,
-                    "Sign Message"
-                }
+                button { class: "sign-button", onclick: sign_message, "Sign Message" }
             }
 
             div { class: "form-group",
@@ -682,7 +677,7 @@ fn SignMessageTab() -> Element {
                     readonly: true,
                     value: signed_message.read().clone(),
                     rows: 8,
-                    cols: 50
+                    cols: 50,
                 }
             }
         }

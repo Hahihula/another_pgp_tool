@@ -4,8 +4,11 @@ name = "another_pgp_tool"
 [bundle]
 identifier = "com.hahihula"
 publisher = "Hahihula"
-icon = ["assets/icon.png"]
-
+icon = [
+    "icons/icon.png", # Linux
+    "icons/icon.ico", # Windows
+    "icons/icon.icns"  # macOS
+]
 [web.app]
 
 # HTML title tag content
