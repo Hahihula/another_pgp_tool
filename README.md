@@ -14,7 +14,7 @@ Another PGP Tool is a work-in-progress application designed to provide simple, s
 - Simple, intuitive interface for PGP operations
 - Built with memory-safe Rust language
 - Open-source and fully auditable
-- App has "no memory". It does not store any data. Even switching tabs erases all form fields.
+- App has "no memory". It does not store any data. Even switching tabs erases all form fields. (Right now it stores the webview data in the TEMP folder, will be fixed soon, but this should not be a concern for most users)
 
 ## Security
 
