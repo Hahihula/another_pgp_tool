@@ -83,7 +83,7 @@ MIT
 - fix platform web
 - add tests
 - add documentation
-- add CI/CD
+- ✔ CI/CD
 - multi recipient encryption
 - UI redesign with better UX and mobile first design
 - add mobile platform
