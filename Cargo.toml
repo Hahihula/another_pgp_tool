@@ -8,7 +8,7 @@ edition = "2021"
 
 [dependencies]
 dioxus = { version = "0.6.0", features = [] }
-pgp-lib = { git = "https://github.com/Hahihula/pimalaya_core.git", branch = "read_pkey_from_string" }
+pgp-lib = { git = "https://github.com/pimalaya/core.git", branch = "master" }
 getrandom = { version = "0.2.15", features = ["js"] }
 base64 = "0.22.1"
 image = "0.25.6"
